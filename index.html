@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Controle de Pontuação - Grupo</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+.container { max-width: 1300px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; }
+
+  h2 { text-align: center; margin-bottom: 10px; }
+.sub-header { text-align: center; margin-bottom: 20px; color: #666; }
+
+.top-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 25px;
+  }
+.btn {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    color: white;
+  }
+.btn-report { background: #2196f3; }
+.btn-download { background: #4caf50; }
+
+.players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+  }
+
+/* Card com borda RGB animada */
+.player-card {
+    background: #fafafa;
+    padding: 15px;
+    border-radius: 8px;
+    position: relative;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+.player-card::before {
+    content: '';
+    position: absolute;
+    top: -3px; left: -3px; right: -3px; bottom: -3px;
+    background: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+    background-size: 400% 400%;
+    border-radius: 8px;
+    z-index: -1;
+    animation: rgb-border 4s linear infinite;
+  }
+
+@keyframes rgb-border {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+.player-name { font-weight: bold; font-size: 16px; margin-bottom: 4px; }
+.player-emoji { font-size: 20px; margin-bottom: 8px; }
+.player-score { font-size: 14px; color: #555; margin-bottom: 10px; }
+
+.progress-bar {
+    width: 100%;
+    background: #ddd;
+    border-radius: 15px;
+    overflow: hidden;
+    height: 25px;
+    margin-bottom: 8px;
+  }
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    text-align: center;
+    color: white;
+    line-height: 25px;
+    font-size: 13px;
+    font-weight: bold;
+    transition: 0.4s;
+  }
+
+.animation-box {
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+.pulse-gold {
+    color: #ff9800;
+    animation: pulse 1.5s infinite;
+  }
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.05); }
+  }
+
+.trophy {
+    color: #ffc107;
+    animation: bounce 1s infinite;
+  }
+.trophy::before { content: "🏆 "; }
+.trophy::after { content: " ✨"; animation: sparkle 1s infinite; }
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+@keyframes sparkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+  }
+.modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 20px;
+    width: 90%;
+    max-width: 600px;
+    border-radius: 8px;
+  }
+.modal-content textarea {
+    width: 100%;
+    height: 350px;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+.close {
+    font-size: 28px;
+    cursor: pointer;
+    color: #aaa;
+  }
+
+  @media (max-width: 700px) {
+.players-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>Controle de Pontuação - Máx: 10.000 pts</h2>
+  <div class="sub-header">Borda RGB animada ativada</div>
+
+  <div class="top-actions">
+    <button class="btn btn-report" onclick="showReport()">📊 Gerar Relatório</button>
+    <button class="btn btn-download" onclick="downloadReport()">⬇️ Baixar.txt</button>
+  </div>
+
+  <div class="players-grid" id="playersGrid"></div>
+</div>
+
+<div id="reportModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Relatório Geral de Pontuação</h3>
+      <span class="close" onclick="closeReport()">&times;</span>
+    </div>
+    <textarea id="reportText" readonly></textarea>
+  </div>
+</div>
+
+<script>
+const maxScore = 10000;
+let players = [
+  { name: "Jamily", emoji: "👩", score: 1300 },
+  { name: "Sofia", emoji: "🌟", score: 2500 },
+  { name: "Nicole", emoji: "🎀", score: 2400 },
+  { name: "Kauany", emoji: "🌸", score: 1900 },
+  { name: "Nicolas", emoji: "👦", score: 100 },
+  { name: "Donizete", emoji: "👨", score: 2000 },
+  { name: "João Pedro", emoji: "⚽", score: 100 },
+  { name: "Renilson", score: 3200, emoji: "🔥" },
+  { name: "Rafaela", emoji: "🌺", score: 2500 },
+  { name: "Paulo", emoji: "💻", score: 600 },
+  { name: "Isadora", emoji: "🦋", score: 150 },
+  { name: "Letícia", emoji: "🎨", score: 1200 },
+  { name: "Jadson", emoji: "🎸", score: 1300 },
+  { name: "Henrique", emoji: "⚡", score: 300 },
+  { name: "Pastor Fábio", emoji: "🙏", score: 1600 }
+];
+
+function render() {
+  const grid = document.getElementById('playersGrid');
+  grid.innerHTML = '';
+  players.forEach((p) => {
+    const percent = Math.max(0, Math.min(100, (p.score / maxScore) * 100));
+
+    let animation = '';
+    if (percent >= 100) {
+      animation = '<div class="animation-box trophy">Meta atingida!</div>';
+    } else if (percent >= 50) {
+      animation = '<div class="animation-box pulse-gold">Quase lá!</div>';
+    } else {
+      animation = '<div class="animation-box"></div>';
+    }
+
+    grid.innerHTML += `
+      <div class="player-card">
+        <div class="player-name">${p.name}</div>
+        <div class="player-emoji">${p.emoji}</div>
+        <div class="player-score">${p.score.toLocaleString('pt-BR')} / ${maxScore.toLocaleString('pt-BR')} pts</div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${percent}%">${Math.round(percent)}%</div>
+        </div>
+        ${animation}
+      </div>
+    `;
+  });
+}
+
+function generateReportText() {
+  const date = new Date().toLocaleString('pt-BR');
+  let text = `RELATÓRIO GERAL DE PONTUAÇÃO\n`;
+  text += `Data: ${date}\n`;
+  text += `Máximo: ${maxScore.toLocaleString('pt-BR')} pts\n`;
+  text += `========================================\n\n`;
+
+  let total = 0;
+  players.forEach(p => {
+    const percent = Math.round((p.score / maxScore) * 100);
+    text += `${p.emoji} ${p.name}: ${p.score.toLocaleString('pt-BR')} pts (${percent}%)\n`;
+    total += p.score;
+  });
+
+  text += `\n========================================\n`;
+  text += `Total Geral: ${total.toLocaleString('pt-BR')} pts\n`;
+  return text;
+}
+
+function showReport() {
+  const text = generateReportText();
+  document.getElementById('reportText').value = text;
+  document.getElementById('reportModal').style.display = 'block';
+}
+
+function closeReport() {
+  document.getElementById('reportModal').style.display = 'none';
+}
+
+function downloadReport() {
+  const text = generateReportText();
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `relatorio_pontuacao_${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+window.onclick = function(event) {
+  const modal = document.getElementById('reportModal');
+  if (event.target == modal) {
+    modal.style.display = 'none';
+  }
+}
+
+render();
+</script>
+</body>
+</html>
